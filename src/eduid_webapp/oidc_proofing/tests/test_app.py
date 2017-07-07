@@ -78,7 +78,6 @@ class OidcProofingTests(EduidAPITestCase):
         self.oidc_provider_config_response = MockResponse(200, json.dumps(self.oidc_provider_config))
 
         super(OidcProofingTests, self).setUp()
-        self.client = self.app.test_client()
 
         # Replace user with one without previous proofings
         userdata = deepcopy(NEW_USER_EXAMPLE)
@@ -129,19 +128,19 @@ class OidcProofingTests(EduidAPITestCase):
             self.app.central_userdb._drop_whole_collection()
 
     def test_authenticate(self):
-        response = self.client.get('/proofing')
+        response = self.browser.get('/proofing')
         self.assertEqual(response.status_code, 302)  # Redirect to token service
-        with self.session_cookie(self.client, self.test_user_eppn) as client:
+        with self.session_cookie(self.browser, self.test_user_eppn) as client:
             response = client.get('/proofing')
         self.assertEqual(response.status_code, 200)  # Authenticated request
 
-    def test_get_empty_seleg_state(self):
-        with self.session_cookie(self.client, self.test_user_eppn) as client:
+    def test_get_empty_state(self):
+        with self.session_cookie(self.browser, self.test_user_eppn) as client:
             response = json.loads(client.get('/proofing').data)
         self.assertEqual(response['type'], 'GET_OIDC_PROOFING_PROOFING_SUCCESS')
 
     def test_get_empty_freja_state(self):
-        with self.session_cookie(self.client, self.test_user_eppn) as client:
+        with self.session_cookie(self.browser, self.test_user_eppn) as client:
             response = json.loads(client.get('/freja/proofing').data)
         self.assertEqual(response['type'], 'GET_OIDC_PROOFING_FREJA_PROOFING_SUCCESS')
 
@@ -149,7 +148,7 @@ class OidcProofingTests(EduidAPITestCase):
         user = self.app.central_userdb.get_user_by_eppn(self.test_user_eppn)
         proofing_state = create_proofing_state(user, self.test_user_nin)
         self.app.proofing_statedb.save(proofing_state)
-        with self.session_cookie(self.client, self.test_user_eppn) as client:
+        with self.session_cookie(self.browser, self.test_user_eppn) as client:
             response = json.loads(client.get('/freja/proofing').data)
         self.assertEqual(response['type'], 'GET_OIDC_PROOFING_FREJA_PROOFING_SUCCESS')
         jwk = {'k': self.app.config['FREJA_JWK_SECRET'].decode('hex')}
@@ -190,19 +189,13 @@ class OidcProofingTests(EduidAPITestCase):
         mock_request_user_sync.return_value = True
         user = self.app.central_userdb.get_user_by_eppn(self.test_user_eppn)
 
-        with self.session_cookie(self.client, self.test_user_eppn) as client:
-            response = json.loads(client.get('/proofing').data)
-        self.assertEqual(response['type'], 'GET_OIDC_PROOFING_PROOFING_SUCCESS')
-
-        csrf_token = response['csrf_token']
-
-        with self.session_cookie(self.client, self.test_user_eppn) as client:
-            data = {'nin': self.test_user_nin, 'csrf_token': csrf_token}
+        with self.session_cookie(self.browser, self.test_user_eppn) as client:
+            data = {'nin': self.test_user_nin}
             response = client.post('/proofing', data=json.dumps(data), content_type=self.content_type_json)
             response = json.loads(response.data)
         self.assertEqual(response['type'], 'POST_OIDC_PROOFING_PROOFING_SUCCESS')
 
-        with self.session_cookie(self.client, self.test_user_eppn) as client:
+        with self.session_cookie(self.browser, self.test_user_eppn) as client:
             response = json.loads(client.get('/proofing').data)
         self.assertEqual(response['type'], 'GET_OIDC_PROOFING_PROOFING_SUCCESS')
 
@@ -229,19 +222,13 @@ class OidcProofingTests(EduidAPITestCase):
         mock_request_user_sync.return_value = True
         user = self.app.central_userdb.get_user_by_eppn(self.test_user_eppn)
 
-        with self.session_cookie(self.client, self.test_user_eppn) as client:
-            response = json.loads(client.get('/freja/proofing').data)
-        self.assertEqual(response['type'], 'GET_OIDC_PROOFING_FREJA_PROOFING_SUCCESS')
-
-        csrf_token = response['csrf_token']
-
-        with self.session_cookie(self.client, self.test_user_eppn) as client:
-            data = {'nin': self.test_user_nin, 'csrf_token': csrf_token}
+        with self.session_cookie(self.browser, self.test_user_eppn) as client:
+            data = {'nin': self.test_user_nin}
             response = client.post('/freja/proofing', data=json.dumps(data), content_type=self.content_type_json)
             response = json.loads(response.data)
         self.assertEqual(response['type'], 'POST_OIDC_PROOFING_FREJA_PROOFING_SUCCESS')
 
-        with self.session_cookie(self.client, self.test_user_eppn) as client:
+        with self.session_cookie(self.browser, self.test_user_eppn) as client:
             response = json.loads(client.get('/freja/proofing').data)
         self.assertEqual(response['type'], 'GET_OIDC_PROOFING_FREJA_PROOFING_SUCCESS')
 
@@ -277,13 +264,13 @@ class OidcProofingTests(EduidAPITestCase):
         user.nins.add(not_verified_nin)
         self.app.central_userdb.save(user)
 
-        with self.session_cookie(self.client, self.test_user_eppn) as client:
+        with self.session_cookie(self.browser, self.test_user_eppn) as client:
             data = {'nin': self.test_user_nin}
             response = client.post('/freja/proofing', data=json.dumps(data), content_type=self.content_type_json)
             response = json.loads(response.data)
         self.assertEqual(response['type'], 'POST_OIDC_PROOFING_FREJA_PROOFING_SUCCESS')
 
-        with self.session_cookie(self.client, self.test_user_eppn) as client:
+        with self.session_cookie(self.browser, self.test_user_eppn) as client:
             response = json.loads(client.get('/freja/proofing').data)
         self.assertEqual(response['type'], 'GET_OIDC_PROOFING_FREJA_PROOFING_SUCCESS')
 
@@ -320,8 +307,8 @@ class OidcProofingTests(EduidAPITestCase):
         csrf_token = response['csrf_token']
 
         # User with no locked_identity
-        with self.session_cookie(self.client, self.test_user_eppn) as client:
-            data = {'nin': self.test_user_nin, 'csrf_token': csrf_token}
+        with self.session_cookie(self.browser, self.test_user_eppn) as client:
+            data = {'nin': self.test_user_nin}
             response = client.post('/proofing', data=json.dumps(data), content_type=self.content_type_json)
             response = json.loads(response.data)
         self.assertEqual(response['type'], 'POST_OIDC_PROOFING_PROOFING_SUCCESS')
@@ -332,8 +319,8 @@ class OidcProofingTests(EduidAPITestCase):
         user.locked_identity.add(LockedIdentityNin(number=self.test_user_nin, created_by='test', created_ts=True))
         self.app.central_userdb.save(user, check_sync=False)
 
-        with self.session_cookie(self.client, self.test_user_eppn) as client:
-            data = {'nin': self.test_user_nin, 'csrf_token': csrf_token}
+        with self.session_cookie(self.browser, self.test_user_eppn) as client:
+            data = {'nin': self.test_user_nin}
             response = client.post('/proofing', data=json.dumps(data), content_type=self.content_type_json)
             response = json.loads(response.data)
         self.assertEqual(response['type'], 'POST_OIDC_PROOFING_PROOFING_SUCCESS')
@@ -341,8 +328,8 @@ class OidcProofingTests(EduidAPITestCase):
         csrf_token = response['csrf_token']
 
         # User with locked_identity and incorrect nin
-        with self.session_cookie(self.client, self.test_user_eppn) as client:
-            data = {'nin': '200102031234', 'csrf_token': csrf_token}
+        with self.session_cookie(self.browser, self.test_user_eppn) as client:
+            data = {'nin': '200102031234'}
             response = client.post('/proofing', data=json.dumps(data), content_type=self.content_type_json)
             response = json.loads(response.data)
         self.assertEqual(response['type'], 'POST_OIDC_PROOFING_PROOFING_FAIL')
@@ -354,14 +341,8 @@ class OidcProofingTests(EduidAPITestCase):
         mock_request_user_sync.return_value = True
         user = self.app.central_userdb.get_user_by_eppn(self.test_user_eppn)
 
-        with self.session_cookie(self.client, self.test_user_eppn) as client:
-            response = json.loads(client.get('/freja/proofing').data)
-        self.assertEqual(response['type'], 'GET_OIDC_PROOFING_FREJA_PROOFING_SUCCESS')
-
-        csrf_token = response['csrf_token']
-
-        with self.session_cookie(self.client, self.test_user_eppn) as client:
-            data = {'nin': self.test_user_nin, 'csrf_token': csrf_token}
+        with self.session_cookie(self.browser, self.test_user_eppn) as client:
+            data = {'nin': self.test_user_nin}
             response = client.post('/freja/proofing', data=json.dumps(data), content_type=self.content_type_json)
             response = json.loads(response.data)
         self.assertEqual(response['type'], 'POST_OIDC_PROOFING_FREJA_PROOFING_SUCCESS')
@@ -371,16 +352,14 @@ class OidcProofingTests(EduidAPITestCase):
         user.locked_identity.add(LockedIdentityNin(number=self.test_user_nin, created_by='test', created_ts=True))
         self.app.central_userdb.save(user, check_sync=False)
 
-        with self.session_cookie(self.client, self.test_user_eppn) as client:
-            data = {'nin': self.test_user_nin, 'csrf_token': csrf_token}
+        with self.session_cookie(self.browser, self.test_user_eppn) as client:
+            data = {'nin': self.test_user_nin}
             response = client.post('/freja/proofing', data=json.dumps(data), content_type=self.content_type_json)
             response = json.loads(response.data)
         self.assertEqual(response['type'], 'POST_OIDC_PROOFING_FREJA_PROOFING_SUCCESS')
 
-        csrf_token = response['csrf_token']
-
-        with self.session_cookie(self.client, self.test_user_eppn) as client:
-            data = {'nin': '200102031234', 'csrf_token': csrf_token}
+        with self.session_cookie(self.browser, self.test_user_eppn) as client:
+            data = {'nin': '200102031234'}
             response = client.post('/freja/proofing', data=json.dumps(data), content_type=self.content_type_json)
             response = json.loads(response.data)
         self.assertEqual(response['type'], 'POST_OIDC_PROOFING_FREJA_PROOFING_FAIL')
